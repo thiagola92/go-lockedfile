@@ -187,3 +187,26 @@ func Transform(name string, t func([]byte) ([]byte, error)) (err error) {
 
 	return nil
 }
+
+// Same as OpenFile but fails immediately if can't get the lock.
+func TryOpenFile(name string, flag int, perm fs.FileMode) (*File, error) {
+	var (
+		f   = new(File)
+		err error
+	)
+	f.osFile.File, err = tryOpenFile(name, flag, perm)
+	if err != nil {
+		return nil, err
+	}
+
+	// Although the operating system will drop locks for open files when the go
+	// command exits, we want to hold locks for as little time as possible, and we
+	// especially don't want to leave a file locked after we're done with it. Our
+	// Close method is what releases the locks, so use a cleanup to report
+	// missing Close calls on a best-effort basis.
+	f.cleanup = runtime.AddCleanup(f, func(fileName string) {
+		panic(fmt.Sprintf("lockedfile.File %s became unreachable without a call to Close", fileName))
+	}, f.Name())
+
+	return f, nil
+}

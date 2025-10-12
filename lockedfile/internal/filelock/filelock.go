@@ -73,3 +73,13 @@ func (lt lockType) String() string {
 		return "Unlock"
 	}
 }
+
+// Same as Lock but fails immediately if can't get the lock.
+func TryLock(f File) error {
+	return tryLock(f, writeLock)
+}
+
+// Same as RLock but fails immediately if can't get the lock.
+func TryRLock(f File) error {
+	return tryLock(f, readLock)
+}

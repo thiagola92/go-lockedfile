@@ -7,16 +7,18 @@
 package filelock
 
 import (
-	"github.com/thiagola92/go-lockedfile/lockedfile/internal/syscall/windows"
 	"io/fs"
 	"syscall"
+
+	"github.com/thiagola92/go-lockedfile/lockedfile/internal/syscall/windows"
 )
 
 type lockType uint32
 
 const (
-	readLock  lockType = 0
-	writeLock lockType = windows.LOCKFILE_EXCLUSIVE_LOCK
+	readLock    lockType = 0
+	writeLock   lockType = windows.LOCKFILE_EXCLUSIVE_LOCK
+	nonBlocking lockType = windows.LOCKFILE_FAIL_IMMEDIATELY
 )
 
 const (
@@ -49,6 +51,25 @@ func unlock(f File) error {
 	if err != nil {
 		return &fs.PathError{
 			Op:   "Unlock",
+			Path: f.Name(),
+			Err:  err,
+		}
+	}
+	return nil
+}
+
+func tryLock(f File, lt lockType) error {
+	// Per https://golang.org/issue/19098, “Programs currently expect the Fd
+	// method to return a handle that uses ordinary synchronous I/O.”
+	// However, LockFileEx still requires an OVERLAPPED structure,
+	// which contains the file offset of the beginning of the lock range.
+	// We want to lock the entire file, so we leave the offset as zero.
+	ol := new(syscall.Overlapped)
+
+	err := windows.LockFileEx(syscall.Handle(f.Fd()), uint32(lt|nonBlocking), reserved, allBytes, allBytes, ol)
+	if err != nil {
+		return &fs.PathError{
+			Op:   lt.String(),
 			Path: f.Name(),
 			Err:  err,
 		}

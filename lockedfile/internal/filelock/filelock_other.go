@@ -33,3 +33,11 @@ func unlock(f File) error {
 		Err:  errors.ErrUnsupported,
 	}
 }
+
+func tryLock(f File, lt lockType) error {
+	return &fs.PathError{
+		Op:   lt.String(),
+		Path: f.Name(),
+		Err:  errors.ErrUnsupported,
+	}
+}

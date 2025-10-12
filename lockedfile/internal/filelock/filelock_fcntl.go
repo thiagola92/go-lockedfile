@@ -208,3 +208,67 @@ func setlkw(fd uintptr, lt lockType) error {
 		}
 	}
 }
+
+func tryLock(f File, lt lockType) (err error) {
+	// POSIX locks apply per inode and process, and the lock for an inode is
+	// released when *any* descriptor for that inode is closed. So we need to
+	// synchronize access to each inode internally, and must serialize lock and
+	// unlock calls that refer to the same inode through different descriptors.
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	ino := fi.Sys().(*syscall.Stat_t).Ino
+
+	mu.Lock()
+	if i, dup := inodes[f]; dup && i != ino {
+		mu.Unlock()
+		return &fs.PathError{
+			Op:   lt.String(),
+			Path: f.Name(),
+			Err:  errors.New("inode for file changed since last Lock or RLock"),
+		}
+	}
+	inodes[f] = ino
+
+	var wait chan File
+	l := locks[ino]
+	if l.owner == f {
+		// This file already owns the lock, but the call may change its lock type.
+	} else if l.owner == nil {
+		// No owner: it's ours now.
+		l.owner = f
+	} else {
+		// Already owned: add a channel to wait on.
+		wait = make(chan File)
+		l.queue = append(l.queue, wait)
+	}
+	locks[ino] = l
+	mu.Unlock()
+
+	if wait != nil {
+		wait <- f
+	}
+
+	err = setlk(f.Fd(), lt)
+
+	if err != nil {
+		unlock(f)
+		return &fs.PathError{
+			Op:   lt.String(),
+			Path: f.Name(),
+			Err:  err,
+		}
+	}
+
+	return nil
+}
+
+func setlk(fd uintptr, lt lockType) error {
+	return syscall.FcntlFlock(fd, syscall.F_SETLK, &syscall.Flock_t{
+		Type:   int16(lt),
+		Whence: io.SeekStart,
+		Start:  0,
+		Len:    0, // All bytes.
+	})
+}
