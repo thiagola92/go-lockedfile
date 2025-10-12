@@ -7,7 +7,7 @@
 package filelock
 
 import (
-	"internal/syscall/windows"
+	"github.com/thiagola92/go-lockedfile/lockedfile/internal/syscall/windows"
 	"io/fs"
 	"syscall"
 )
