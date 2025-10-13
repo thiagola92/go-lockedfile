@@ -32,6 +32,7 @@ def replace_imports [dir] {
     cd -
 }
 
+# TODO: Learn to make all directories recusrively through nushell.
 replace_imports lockedfile
 replace_imports lockedfile/internal
 replace_imports lockedfile/internal/abi
