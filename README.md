@@ -23,3 +23,4 @@ After this, we must manually implement any "try lock" method. Most of them are a
 - https://man7.org/linux/man-pages/man2/F_SETLK.2const.html
 - https://man7.org/linux/man-pages/man2/flock.2.html
 - https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfileex
+- https://go.dev/doc/modules/publishing
